@@ -92,7 +92,7 @@ class RedisStore implements Store {
       "SCRIPT",
       "LOAD",
       `
-        local totalHits = redis.call("INCRBY", KEYS[1], ARGV[3]))
+        local totalHits = redis.call("INCRBY", KEYS[1], ARGV[3])
         local timeToExpire = redis.call("PTTL", KEYS[1])
         if timeToExpire <= 0 or ARGV[1] == "1"
         then
