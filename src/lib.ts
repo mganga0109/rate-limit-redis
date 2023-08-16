@@ -40,6 +40,8 @@ class RedisStore implements Store {
    */
   windowMs!: number;
 
+  expireAtMs!: number;
+
   /**
    * @constructor for `RedisStore`.
    *
@@ -133,6 +135,11 @@ class RedisStore implements Store {
    */
   init(options: RateLimitConfiguration) {
     this.windowMs = options.windowMs;
+    this.expireAtMs = options.expireAtMs
+  }
+
+  setExpireAt(expireAtMs: number) {
+    this.expireAtMs = expireAtMs
   }
 
   /**
