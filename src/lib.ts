@@ -98,7 +98,7 @@ class RedisStore implements Store {
         local timeToExpire = redis.call("PTTL", KEYS[1])
         if timeToExpire <= 0 or ARGV[1] == "1"
         then
-            redis.call("PEXPIRE", KEYS[1], tonumber(ARGV[2]))
+            redis.call("PEXPIREAT", KEYS[1], tonumber(ARGV[4]))
             timeToExpire = tonumber(ARGV[2])
         end
 
@@ -192,7 +192,8 @@ class RedisStore implements Store {
       this.prefixKey(key),
       this.resetExpiryOnChange ? "1" : "0",
       this.windowMs.toString(),
-      score.toString()
+      score.toString(),
+      this.expireAtMs.toString()
     );
 
     if (!Array.isArray(results)) {
