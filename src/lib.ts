@@ -135,7 +135,6 @@ class RedisStore implements Store {
    */
   init(options: RateLimitConfiguration) {
     this.windowMs = options.windowMs;
-    this.expireAtMs = options.expireAtMs
   }
 
   setExpireAt(expireAtMs: number) {
