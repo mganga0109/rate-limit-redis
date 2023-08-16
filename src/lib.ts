@@ -145,6 +145,41 @@ class RedisStore implements Store {
     };
   }
 
+  async incrementBy(key: string, score: number): Promise<IncrementResponse> {
+    const results = await this.sendCommand(
+      "EVALSHA",
+      await this.loadedScriptSha1,
+      score.toString(),
+      this.prefixKey(key),
+      this.resetExpiryOnChange ? "1" : "0",
+      this.windowMs.toString()
+    );
+
+    if (!Array.isArray(results)) {
+      throw new TypeError("Expected result to be array of values");
+    }
+
+    if (results.length !== 2) {
+      throw new Error(`Expected 2 replies, got ${results.length}`);
+    }
+
+    const totalHits = results[0];
+    if (typeof totalHits !== "number") {
+      throw new TypeError("Expected value to be a number");
+    }
+
+    const timeToExpire = results[1];
+    if (typeof timeToExpire !== "number") {
+      throw new TypeError("Expected value to be a number");
+    }
+
+    const resetTime = new Date(Date.now() + timeToExpire);
+    return {
+      totalHits,
+      resetTime,
+    };
+  }
+
   /**
    * Method to decrement a client's hit counter.
    *
@@ -152,6 +187,10 @@ class RedisStore implements Store {
    */
   async decrement(key: string): Promise<void> {
     await this.sendCommand("DECR", this.prefixKey(key));
+  }
+
+  async decrementBy(key: string, score: number): Promise<void> {
+    await this.sendCommand("DECRBY", this.prefixKey(key), score.toString());
   }
 
   /**
