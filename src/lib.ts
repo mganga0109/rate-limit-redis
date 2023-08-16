@@ -30,7 +30,10 @@ class RedisStore implements Store {
   /**
    * Stores the loaded SHA1 of the LUA script for executing the increment operations.
    */
+  
   loadedScriptSha1: Promise<string>;
+
+  loadedScriptBySha1: Promise<string>;
 
   /**
    * The number of milliseconds to remember that user's requests.
@@ -53,6 +56,7 @@ class RedisStore implements Store {
     // the script has finished loading, it will wait until it is loaded
     // before it continues.
     this.loadedScriptSha1 = this.loadScript();
+    this.loadedScriptBySha1 = this.loadScriptBy();
   }
 
   async loadScript(): Promise<string> {
@@ -61,6 +65,34 @@ class RedisStore implements Store {
       "LOAD",
       `
         local totalHits = redis.call("INCR", KEYS[1])
+        local timeToExpire = redis.call("PTTL", KEYS[1])
+        if timeToExpire <= 0 or ARGV[1] == "1"
+        then
+            redis.call("PEXPIRE", KEYS[1], tonumber(ARGV[2]))
+            timeToExpire = tonumber(ARGV[2])
+        end
+
+        return { totalHits, timeToExpire }
+    `
+        // Ensure that code changes that affect whitespace do not affect
+        // the script contents.
+        .replace(/^\s+/gm, "")
+        .trim()
+    );
+
+    if (typeof result !== "string") {
+      throw new TypeError("unexpected reply from redis client");
+    }
+
+    return result;
+  }
+
+  async loadScriptBy(): Promise<string> {
+    const result = await this.sendCommand(
+      "SCRIPT",
+      "LOAD",
+      `
+        local totalHits = redis.call("INCRBY", KEYS[1], ARGV[3]))
         local timeToExpire = redis.call("PTTL", KEYS[1])
         if timeToExpire <= 0 or ARGV[1] == "1"
         then
@@ -148,11 +180,12 @@ class RedisStore implements Store {
   async incrementBy(key: string, score: number): Promise<IncrementResponse> {
     const results = await this.sendCommand(
       "EVALSHA",
-      await this.loadedScriptSha1,
-      score.toString(),
+      await this.loadedScriptBySha1,
+      "1",
       this.prefixKey(key),
       this.resetExpiryOnChange ? "1" : "0",
-      this.windowMs.toString()
+      this.windowMs.toString(),
+      score.toString()
     );
 
     if (!Array.isArray(results)) {
